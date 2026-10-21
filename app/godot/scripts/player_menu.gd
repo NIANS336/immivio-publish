@@ -721,7 +721,10 @@ func _subtitle_label(track: Dictionary) -> String:
 
 
 func _subtitle_controls() -> Array:
-	var rows: Array = []
+	var rows: Array = [{"title": "AI 中文字幕", "field": {
+		"key": "ai_subtitles_enabled", "value": _state.get("ai_subtitles_enabled", false),
+		"choices": [{"value": false, "label": "Off"}, {"value": true, "label": "On"}]
+	}}]
 	if _immersive_subtitles():
 		rows.append(
 			{
@@ -1141,6 +1144,7 @@ func _bar_key() -> String:
 			_state.get("subtitle_size", 100),
 			_state.get("subtitle_flat_position", 0),
 			_state.get("subtitle_loading", false),
+			_state.get("ai_subtitles_enabled", false),
 			_state.get("subtitle_palette", 0)
 		]
 	)
@@ -1743,6 +1747,8 @@ func _caption_text(operation: String) -> String:
 
 
 func _status_text() -> String:
+	if _state.get("ai_subtitles_enabled", false):
+		return str(_state.get("ai_subtitles_status", "AI 中文字幕"))
 	if _state.get("subtitle_loading", false):
 		return I18n.t("Loading subtitle…")
 	if not str(_state.get("error", "")).is_empty():

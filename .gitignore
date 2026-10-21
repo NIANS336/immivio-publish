@@ -63,3 +63,7 @@ thru3d*-signing.json
 __pycache__/
 
 Downloads
+*.private.json
+*.keystore
+ai-caption/.venv/
+__pycache__/

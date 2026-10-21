@@ -2,6 +2,8 @@
 
 # Immivio
 
+此本地分支新增 Windows ASR + llama.cpp 流式中文翻译字幕，保留 v0.9.3 的 WebDAV 播放。配置、流式语义、同步限制与验证方法见 [AI 字幕说明](ai-caption/README.md)。这是自行签名的本地版本；安装前确认不会覆盖不同签名的已有版本。
+
 ### Free, open-source VR video player for Meta Quest and PICO
 
 **VR180 · VR360 · 3D · Spatial Video · Photos**

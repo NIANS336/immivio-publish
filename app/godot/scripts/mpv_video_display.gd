@@ -125,6 +125,7 @@ var _access_request := 0
 var _access_pending: Dictionary = {}
 var _audio_pending := false
 var local_uri := ""
+var ai_captions := preload("res://scripts/ai_streaming_subtitles.gd").new()
 var display_name := ""
 var picker_error := ""
 var _picker_request := 0
@@ -199,6 +200,8 @@ func _ready() -> void:
 		platform.connect("mpv_pixel_mask", _on_pixel_mask)
 		platform.connect("mpv_frozen_pair", _on_frozen_pair)
 	_apply_geometry()
+	ai_captions.setup(self)
+	add_child(ai_captions)
 
 
 func ai_available() -> bool:
@@ -1356,8 +1359,8 @@ func _poll_subtitles() -> void:
 			_subtitle_received_ms = now
 	if now - _subtitle_received_ms > 1000:
 		subtitles.clear()
-	caption.text = subtitles.text
-	caption.visible = not subtitles.text.is_empty()
+	caption.text = ai_captions.text if ai_captions.enabled else subtitles.text
+	caption.visible = not caption.text.is_empty()
 	if caption.visible:
 		_place_caption()
 	else:

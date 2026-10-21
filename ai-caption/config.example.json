@@ -1,0 +1,13 @@
+{
+  "token": "replace-with-at-least-32-random-characters",
+  "webdav_base": "https://dav.example.com",
+  "webdav_user": "",
+  "webdav_password": "",
+  "ffmpeg": "E:\\immivio-ai-caption\\.venv\\Lib\\site-packages\\imageio_ffmpeg\\binaries\\ffmpeg-win-x86_64-v7.1.exe",
+  "asr_url": "http://127.0.0.1:8765/ws/asr",
+  "translation_url": "http://127.0.0.1:8081/v1/chat/completions",
+  "model": "Ternary-Bonsai-2-9B-Q2_0.gguf",
+  "port": 8773,
+  "ahead_ms": 12000,
+  "segment_seconds": 3.0
+}

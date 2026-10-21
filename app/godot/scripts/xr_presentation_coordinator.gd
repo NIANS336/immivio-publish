@@ -644,6 +644,8 @@ func _menu_state() -> Dictionary:
 		"audio_delay_ms": host.video.audio_delay_ms,
 		"external_subtitle": not host.video.external_subtitle_uri.is_empty(),
 		"subtitle_loading": host.video._subtitle_loading or host.video._subtitle_pick > 0,
+		"ai_subtitles_enabled": host.video.ai_captions.enabled,
+		"ai_subtitles_status": host.video.ai_captions.status,
 		"queue_items": host.video_queue,
 		"queue_revision": host.playback_queue.revision,
 		"queue_shuffle": host.playback_queue.shuffle,

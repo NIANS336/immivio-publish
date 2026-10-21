@@ -347,6 +347,9 @@ func _on_player_setting(key: String, value: Variant) -> void:
 	if host.photo_active:
 		return
 	match key:
+		"ai_subtitles_enabled":
+			host.video.ai_captions.set_enabled(bool(value))
+			host.video.changed.emit()
 		"subtitle_distance", "subtitle_position", "subtitle_direction":
 			host._on_setting_changed(key, value)
 		"viewing_eye":
