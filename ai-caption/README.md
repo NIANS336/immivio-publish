@@ -5,6 +5,8 @@
 ## 流式与时间同步
 
 - ASR 是连续音频输入、VAD 短句输出，**不是逐字 ASR 假设**。本服务的连接使用 220 ms 静音、最多 3 秒分句，既有 ASR 的全局设置不变。现有 ASR 的最短语音限制是 1 秒，更短的独立感叹词可能漏掉。
+- 轻声音台词漏识别的原因：人声低于背景音乐时，Silero VAD 的语音概率掉到默认 0.5 以下，整句在进识别器之前就被丢弃，表现为“大声能认、角色轻声就丢”。实测纯语音即使整体压到约 −55 dBFS 仍能识别，说明瓶颈是人声相对 BGM 的信噪比，不是绝对音量，也与头显音量无关（音轨由 Windows 独立读取原文件，头显音量只影响耳朵）。因此 FFmpeg 侧默认加 `dialogue_filter`（`dynaudnorm=f=200:g=15`，把安静段落抬向本段平均响度），并把这条连接的 `vad_threshold` 降到 0.3；两者都不修改共享 ASR 的全局设置。`dialogue_filter` 置空即关闭增益。若 BGM 重的片段反而冒出误识别字幕，把 `vad_threshold` 调回 0.4–0.5。
+- FFmpeg 滤镜链先 `aresample=16000` 再接响度滤镜：`loudnorm` 之类会把输出采样率改成 192 kHz，放在末尾会让 ASR 收到错误采样率而整段不识别。
 - llama.cpp 使用 `stream: true`，每个 SSE 文本增量立即回传，不等待整句生成。字幕按照片中起止时间显示，尚未播到的结果会暂存。
 - Windows 最多提前读取 12 秒音轨；不会保存整部影片。远程服务器是否支持 Range、容器布局和网络速度会影响开播、跳转后的等待及实际流量。
 - 暂停时停止推进预读窗口；切片、切音轨、拖动进度和重连均取消旧任务并增加 epoch，旧结果不能进入新画面。不会暂停电影等翻译，也不保证开播/跳转零延迟。
@@ -41,11 +43,21 @@ FFmpeg 只访问本服务的回环 Range 代理；WebDAV 密码不进入 FFmpeg 
 
 ## 验证
 
-```sh
-python -m unittest discover -s tests -v
+```powershell
+# tests/ 不是包，需要把项目根目录放进 PYTHONPATH
+$env:PYTHONPATH = (Get-Location).Path
+.venv\Scripts\python.exe -m unittest discover -s tests -t tests -p "test_*.py" -v
 ```
 
-回归涵盖路径/时间校验、SSE 增量边界、鉴权、旧会话取消与上游错误。真机还需确认选中的音轨与声音一致、跳转后不串句，以及 VR 投影下的位置、中文字体和网络延迟。该分支新增的脚本与服务源代码沿用仓库许可证。
+回归涵盖路径/时间校验、SSE 增量边界、鉴权、旧会话取消与上游错误，以及轻声音台词的响度增益（默认值、采样率顺序、可关闭、阈值与滤镜取值校验）。
+
+端到端冒烟用 `tools\e2e_probe.py`，它在桥接主机上模拟头显的 `clock` 心跳播放一段真实 WebDAV 影片并打印每条最终字幕，可在同一音轨上对比不同 `dialogue_filter` / `vad_threshold` 的识别结果：
+
+```powershell
+.\.venv\Scripts\python.exe tools\e2e_probe.py 40      # 40 秒窗口
+```
+
+字幕连接同时只允许有限名额，跑之前先关掉头显的 AI 中文字幕，否则会返回 503。真机还需确认选中的音轨与声音一致、跳转后不串句，以及 VR 投影下的位置、中文字体和网络延迟。该分支新增的脚本与服务源代码沿用仓库许可证。
 
 ## 本地 APK 构建
 

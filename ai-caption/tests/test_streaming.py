@@ -1,19 +1,57 @@
 import asyncio
 import json
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
 from unittest.mock import patch
 
 import aiohttp
 from aiohttp.test_utils import AioHTTPTestCase
 
 from immivio_caption.config import Config, media_path, position
+from immivio_caption.pipeline import decoder_args
 from immivio_caption.server import create_app
 from immivio_caption.translation import sse_events
 
 
 CONFIG = Config(token="a" * 40, webdav_base="https://dav.example.com",
-                webdav_user="test", webdav_password="private", ffmpeg="unused")
+                webdav_user="test", webdav_password="private", ffmpeg="ffmpeg")
+
+
+def write_config(tmpdir, **overrides):
+    payload = {"token": "a" * 40, "webdav_base": "https://dav.example.com",
+               "webdav_user": "test", "webdav_password": "private", "ffmpeg": "ffmpeg"}
+    payload.update(overrides)
+    path = Path(tmpdir) / "config.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+class DialogueGainTests(unittest.TestCase):
+    """Quiet lines must reach the recogniser, at any sample rate the filter asks for."""
+
+    def test_defaults_lift_loudness_and_lower_the_speech_threshold(self):
+        self.assertEqual(CONFIG.vad_threshold, 0.3)
+        self.assertIn("dynaudnorm", CONFIG.dialogue_filter)
+
+    def test_decoder_resamples_before_the_loudness_filter(self):
+        args = decoder_args(CONFIG, "http://127.0.0.1:8773/media/x/a.mp4", 0, 1200)
+        af = args[args.index("-af") + 1]
+        self.assertLess(af.index("aresample=16000"), af.index("dynaudnorm"))
+        self.assertEqual(args[args.index("-ar") + 1], "16000")
+        self.assertEqual(args[args.index("-ss") + 1], "1.2")
+
+    def test_loudness_filter_can_be_switched_off(self):
+        args = decoder_args(replace(CONFIG, dialogue_filter=""), "/media/a.mp4", 1, 0)
+        self.assertEqual(args[args.index("-af") + 1], "aresample=16000")
+        self.assertEqual(args[args.index("-map") + 1], "0:a:1")
+
+    def test_rejects_out_of_range_threshold_or_shell_ambiguous_filter(self):
+        for overrides in [{"vad_threshold": 0.99}, {"vad_threshold": 0.05},
+                          {"dialogue_filter": 'dynaudnorm";rm -rf /'}]:
+            with self.subTest(**overrides), tempfile.TemporaryDirectory() as tmp, self.assertRaises(ValueError):
+                Config.load(write_config(tmp, **overrides))
 
 
 class ValidationTests(unittest.TestCase):

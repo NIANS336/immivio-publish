@@ -12,6 +12,23 @@ import aiohttp
 from .translation import translate
 
 
+def decoder_args(config, url, audio_index, start_ms):
+    """FFmpeg command for one playback epoch: 16 kHz mono PCM, loudness lifted.
+
+    The loudness filter is what makes quiet dialogue survive VAD. Resample runs
+    first because a trailing filter may otherwise change the sample rate the ASR
+    was told to expect (loudnorm silently rescales to 192 kHz).
+    """
+    filters = ["aresample=16000"]
+    if config.dialogue_filter:
+        filters.append(config.dialogue_filter)
+    return [config.ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+            "-rw_timeout", "20000000", "-protocol_whitelist", "http,tcp",
+            "-ss", str(start_ms / 1000), "-i", url, "-map", f"0:a:{audio_index}",
+            "-vn", "-sn", "-dn", "-af", ",".join(filters),
+            "-ac", "1", "-ar", "16000", "-f", "s16le", "pipe:1"]
+
+
 class Pipeline:
     def __init__(self, http, config, send, nonce, epoch, path, start_ms, audio_index=0):
         self.http, self.config, self.send = http, config, send
@@ -39,9 +56,13 @@ class Pipeline:
                 ready = await asr.receive_json(timeout=10)
                 if ready.get("type") != "ready":
                     raise RuntimeError("ASR is not ready")
+                # Per-connection VAD only; the shared ASR keeps its own defaults.
+                # threshold 0.5 drops lines whose speech probability sinks under the
+                # music bed, so soft dialogue never reaches the recogniser.
                 await asr.send_json({"type": "configure", "silence_ms": 220,
                                      "min_speech_ms": 1000,
-                                     "max_speech_s": self.config.segment_seconds})
+                                     "max_speech_s": self.config.segment_seconds,
+                                     "threshold": self.config.vad_threshold})
                 async with asyncio.TaskGroup() as tasks:
                     tasks.create_task(self.feed(asr))
                     tasks.create_task(self.receive(asr))
@@ -67,10 +88,7 @@ class Pipeline:
 
     async def feed(self, asr):
         url = f"http://127.0.0.1:{self.config.port}/media/{self.nonce}" + quote(self.path, safe="/")
-        args = [self.config.ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
-                "-rw_timeout", "20000000", "-protocol_whitelist", "http,tcp",
-                "-ss", str(self.start_ms / 1000), "-i", url, "-map", f"0:a:{self.audio_index}",
-                "-vn", "-sn", "-dn", "-ac", "1", "-ar", "16000", "-f", "s16le", "pipe:1"]
+        args = decoder_args(self.config, url, self.audio_index, self.start_ms)
         options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
         self.process = await asyncio.create_subprocess_exec(
             *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL, **options)

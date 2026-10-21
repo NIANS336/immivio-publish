@@ -9,5 +9,7 @@
   "model": "Ternary-Bonsai-2-9B-Q2_0.gguf",
   "port": 8773,
   "ahead_ms": 12000,
-  "segment_seconds": 3.0
+  "segment_seconds": 3.0,
+  "dialogue_filter": "dynaudnorm=f=200:g=15",
+  "vad_threshold": 0.3
 }

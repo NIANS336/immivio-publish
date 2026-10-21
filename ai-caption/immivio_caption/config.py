@@ -38,6 +38,11 @@ class Config:
     model: str = "Ternary-Bonsai-2-9B-Q2_0.gguf"
     ahead_ms: int = 12000
     segment_seconds: float = 3.0
+    # Soft dialogue sinks under the music bed, so Silero scores it below its 0.5
+    # default and the line dies before recognition. Lift quiet passages towards
+    # the local average and lower the speech threshold of this connection only.
+    dialogue_filter: str = "dynaudnorm=f=200:g=15"
+    vad_threshold: float = 0.3
 
     @classmethod
     def load(cls, path):
@@ -49,6 +54,10 @@ class Config:
             raise ValueError("invalid private configuration")
         if not 4000 <= config.ahead_ms <= 30000 or not 1 <= config.segment_seconds <= 5:
             raise ValueError("invalid streaming limits")
+        if not 0.1 <= config.vad_threshold <= 0.95:
+            raise ValueError("invalid vad_threshold")
+        if any(c in config.dialogue_filter for c in ('"', "'", "`", "$", ";", "\n", "\r")):
+            raise ValueError("invalid dialogue_filter")
         return config
 
     def media_url(self, path):
