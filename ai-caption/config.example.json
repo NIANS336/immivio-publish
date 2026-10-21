@@ -12,7 +12,6 @@
   "segment_seconds": 3.0,
   "dialogue_filter": "dynaudnorm=f=200:g=15",
   "vad_threshold": 0.3,
-  "persona": "generic",
   "system_prompt": "",
   "translation_temperature": 0.7
 }

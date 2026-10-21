@@ -5,6 +5,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -34,12 +35,20 @@ def check():
             ),
             "-version",
         ],
+        "go": ["go", "version"],
         "gradle": [tools["gradle"], "--version"],
     }.items():
         result = subprocess.run(
             command, env=env, capture_output=True, text=True, check=True, timeout=30
         )
         versions[name] = (result.stdout + result.stderr).strip()
+    for name in ("gomobile", "gobind"):
+        path = shutil.which(name, path=env["PATH"])
+        if not path:
+            raise RuntimeError(f"Preinstall {name} in PATH")
+        versions[name] = subprocess.check_output(
+            ["go", "version", "-m", path], env=env, text=True
+        ).strip()
     for path in (
         sdk / f"platforms/android-{TOOLCHAIN['android']['platform']}/android.jar",
         sdk / "build-tools" / args.build_tools,

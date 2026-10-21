@@ -4,7 +4,7 @@ Run on the Windows bridge host, no server restart needed:
 
     .venv\\Scripts\\python.exe tools\\persona_probe.py out.json "台词一" "台词二"
 
-With no lines it uses a built-in AV sample set. Writes UTF-8 JSON so the results
+With no lines it uses a built-in sample set. Writes UTF-8 JSON so the results
 can be read back without console codepage damage.
 """
 import asyncio
@@ -19,8 +19,8 @@ from immivio_caption.translation import (DEFAULT_SYSTEM_PROMPT, clean_translatio
                                          translate)
 
 ROOT = Path(__file__).resolve().parent.parent
-SAMPLES = ["中に出していい？", "おちんちん、大きすぎる", "イキそう、もう無理",
-           "もっと強く犯して", "バックでして欲しい", "気持ちいい、もう一回",
+SAMPLES = ["ちょっと待って、今行くね", "これ、見て見て、すごいでしょう",
+           "ほんと？うれしい、ありがとう", "気をつけて帰ってね",
            "今日はいい天気ですね"]
 
 

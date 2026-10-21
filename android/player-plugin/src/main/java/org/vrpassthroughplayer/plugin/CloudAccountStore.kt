@@ -11,11 +11,11 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.spec.GCMParameterSpec
 
-/** Account secrets stay in application-private storage, encrypted by Android Keystore. */
-internal class EncryptedAccountStore(
+/** Separate from the retired Go database. Cookies never enter backups or Godot. */
+internal class CloudAccountStore(
     context: Context,
-    filename: String,
-    keyAlias: String
+    filename: String = "cloud-accounts-v2.bin",
+    keyAlias: String = "quest_player_cloud_accounts_v2"
 ) {
     private val file = AtomicFile(File(context.noBackupFilesDir, filename))
     private val key by lazy {

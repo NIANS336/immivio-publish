@@ -142,6 +142,7 @@ internal class MpvVideoBridge(
                 "content",
                 "file",
                 "smb",
+                "cloud",
                 "medialib",
                 "http",
                 "https"

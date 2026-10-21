@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -107,7 +108,7 @@ def main():
     apk.unlink()
     environment["IMMIVIO_MPV_LIB_DIR"] = str(directory)
 
-    # A short SDK path prevents native compiler commands breaking on spaces.
+    # A short SDK path prevents gomobile's C compiler command breaking on spaces.
     sdk = Path(os.environ["ANDROID_HOME"])
     if windows and " " in str(sdk):
         alias = Path(os.environ["RUNNER_TEMP"]).anchor + "immivio-android-sdk"
@@ -168,9 +169,22 @@ def main():
                 check=True,
             )
 
+    module = (ROOT / "cloud/openlist/go.mod").read_text()
+    revision = re.search(r"^\s*golang.org/x/mobile\s+(\S+)", module, re.M).group(1)
+    bin_dir = base / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    env = dict(os.environ, GOBIN=str(bin_dir), GOTOOLCHAIN="local")
+    for tool in ("gomobile", "gobind"):
+        subprocess.run(
+            ["go", "install", f"golang.org/x/mobile/cmd/{tool}@{revision}"],
+            env=env,
+            check=True,
+        )
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
         for name, value in environment.items():
             output.write(f"{name}={value}\n")
+    with open(os.environ["GITHUB_PATH"], "a", encoding="utf-8") as output:
+        output.write(str(bin_dir) + "\n")
 
 
 if __name__ == "__main__":

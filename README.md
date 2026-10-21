@@ -2,7 +2,17 @@
 
 # Immivio
 
-此本地分支新增 Windows ASR + llama.cpp 流式中文翻译字幕，保留 v0.9.3 的 WebDAV 播放。配置、流式语义、同步限制与验证方法见 [AI 字幕说明](ai-caption/README.md)。这是自行签名的本地版本；安装前确认不会覆盖不同签名的已有版本。
+### ✨ 本分支特色：AI 实时字幕翻译（可自定义接入任意 AI 模型）
+
+在免费开源的 VR 播放器基础上，新增一条**局域网 AI 实时字幕流水线**：头显播放 WebDAV 影片的同时，桥接服务独立读取同一文件的音轨，经 ASR 语音识别后送入大模型流式翻译，译文逐字增量实时回传头显，复用播放器原有的平面 / VR180 / VR360 字幕图层——看生肉终于不用等熟肉了。
+
+- **自定义接入 AI 模型**：翻译端只要暴露 OpenAI 兼容接口（`/v1/chat/completions`）即可，llama.cpp、Ollama、vLLM、LM Studio 或任何云端 API 都能接，换个地址和模型名就能跑；
+- **可自定义翻译人设**：内置口语化中性中文字幕默认人设，私有配置 `system_prompt` 非空即可整段替换成自己的提示词；小模型防跑偏护栏（单行截断、复读防护、引号剥离）开箱即用；
+- **轻声台词也能认**：FFmpeg 响度增益 + 按连接调低的 VAD 阈值，背景音乐下的软台词不再整句丢失；
+- **隐私设计**：凭据只存本机私有配置，日志不记录台词、影片路径与账号；
+- 附带沉浸式字幕双眼合像校准、文件夹封面显示最后播放缩略图等改进。
+
+部署与架构详见 [AI 字幕说明](ai-caption/README.md)。本分支为自行签名的构建版本；安装前确认不会覆盖不同签名的已有版本。
 
 文件夹封面：WebDAV、SMB 和可识别文件路径的本地文件夹，会显示该文件夹内最后播放视频的已有缩略图，与“最近播放”使用同一张图片。子目录的视频也更新祖先目录封面；升级时会从现有最近播放记录补齐。封面引用保存在应用私有目录，最多 256 个文件夹，不额外读取或解码视频；清空历史/缓存会清除封面引用，图片缓存被淘汰时恢复文件夹图标。关闭历史记录后不新增封面记录。
 
@@ -18,7 +28,7 @@ Watch VR180, 360° and 3D side-by-side (SBS) videos and supported spatial photos
 
 **Designed for high-performance playback:** libmpv uses Android hardware video decoding where supported, with shared GPU textures for rendering and adjustable display quality. Actual performance depends on headset, codec, resolution and bitrate.
 
-Immivio 是面向 Meta Quest 与 PICO 的免费开源 VR 视频播放器，支持 VR180、360° 全景、3D 左右立体视频与空间照片，提供硬件解码、GPU 渲染，以及 SMB、DLNA 网络媒体库访问。[查看中文官网](https://northboundwisdom.github.io/immivio/zh/)。
+Immivio 是面向 Meta Quest 与 PICO 的免费开源 VR 视频播放器，支持 VR180、360° 全景、3D 左右立体视频与空间照片，提供硬件解码、GPU 渲染，以及 SMB、WebDAV、DLNA 网络媒体库访问。[查看中文官网](https://northboundwisdom.github.io/immivio/zh/)。
 
 [Website](https://northboundwisdom.github.io/immivio/) · [Releases](https://github.com/NorthBoundWisdom/immivio/releases) · [Development builds](https://github.com/NorthBoundWisdom/immivio/actions/workflows/android-release.yml) · [User guide](https://northboundwisdom.github.io/immivio/guide/) · [中文官网与使用指南](https://northboundwisdom.github.io/immivio/zh/)
 
@@ -36,7 +46,7 @@ Immivio continues development of [zerochocobo/Thru3D-Media-Player](https://githu
 
 - **Watch flat or immersive media.** Flat screens, VR180, VR360 and fisheye projections; side-by-side and top-bottom stereo layouts, including half-width/half-height formats.
 - **Free and open source.** Download, use and build the player under GPL-3.0; third-party services follow their own terms and may have their own fees.
-- **Bring your own library.** Local files, SMB, DLNA, supported media servers. Available operations depend on the source and your account permissions.
+- **Bring your own library.** Local files, SMB, WebDAV, DLNA, supported media servers and cloud sources. Available operations depend on the source and your account permissions.
 - **Get comfortable.** Move the picture and panels, adjust supported screen size/distance/curvature, and use reclining mode or head-follow when you want them.
 - **Keep control.** Compact playback popups with slider resets, subtitles, playback speed, per-video audio/subtitle timing, automatic queue advance and optional shuffle.
 - **Return to familiar settings.** Remembered per-video track choices and stereo alignment, system-controlled volume, and full filename hover tips.
@@ -96,7 +106,7 @@ The interface supports English, Simplified Chinese, Traditional Chinese and Japa
 - Store listing name: **Immivio – VR & Spatial Media Player**
 - [Changelog](CHANGELOG.md) · [Release notes / 更新说明](https://northboundwisdom.github.io/immivio/updates/)
 - [Build from source](docs/BUILD.md) · [Architecture](docs/ARCHITECTURE.md) · [Refactor plan](docs/REFACTOR_PLAN.md) · [Testing](docs/TESTING.md) · [Refactor acceptance](docs/ACCEPTANCE.md) · [Contributing](CONTRIBUTING.md)
-- Project source is [GPL-3.0-only](LICENSE). Third-party components retain their licenses. See [licensing details](docs/LICENSING.md).
+- Project source is [GPL-3.0-only](LICENSE). Third-party components retain their licenses, including the embedded OpenList component's AGPL-3.0 obligations. See [licensing details](docs/LICENSING.md).
 
 [**Ravo Studio**](https://northboundwisdom.github.io/Ravo/) — organize, review and develop photographs.
 
