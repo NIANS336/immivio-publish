@@ -1,0 +1,50 @@
+extends SceneTree
+const Covers := preload("res://scripts/folder_cover_cache.gd")
+const Thumbnails := preload("res://scripts/thumbnail_cache.gd")
+const Recent := preload("res://scripts/recent_files.gd")
+const Menu := preload("res://scripts/library_menu.gd")
+
+
+func _initialize() -> void:
+	var scratch := OS.get_environment("IMMIVIO_TEST_DIR")
+	assert(not scratch.is_empty(), "Set IMMIVIO_TEST_DIR to a workspace scratch directory")
+	Covers._path = scratch.path_join("folder_covers.json")
+	Covers.clear()
+	var first := "cloud://account-a/Folder%20A/part1.mp4"
+	var second := "cloud://account-a/Folder%20A/Nested/part2.mp4"
+	Covers.remember(first)
+	assert(Covers._records["cloud://account-a/Folder A"] == first)
+	Covers.remember(second)
+	assert(Covers._records["cloud://account-a/Folder A"] == second)
+	assert(Covers._records["cloud://account-a/Folder A/Nested"] == second)
+	assert(not Covers._records.has("cloud://account-b/Folder A"), "Accounts must stay separate")
+	Covers._loaded = false
+	Covers._records.clear()
+	Covers.seed([{ "uri": first, "kind": "video" }])
+	assert(Covers._records["cloud://account-a/Folder A"] == second, "Persist the last played child")
+	var image := Image.create(4, 4, false, Image.FORMAT_RGB8)
+	image.fill(Color.BLUE)
+	var texture := ImageTexture.create_from_image(image)
+	Thumbnails._textures[Thumbnails.path_for(second)] = texture
+	var menu := Menu.new()
+	menu.section = Menu.Section.CLOUD
+	var row: Dictionary = menu._entry_row({"title": "Folder A", "id": "/account-a/Folder A", "container": true})
+	assert(menu._picture(row) == texture, "Folder and recent video must use the exact same texture")
+	assert(Covers.from_entry({"id": "/account-a/Dir%20x"}, "cloud") in Covers.parents("cloud://account-a/Dir%2520x/clip.mp4"))
+	assert(Covers.from_entry({"id": "Share/Folder A"}, "smb", "server-a") in Covers.parents("smb://server-a/Share/Folder A/clip.mp4"))
+	assert(Covers.parents("https://unrelated.example/clip.mp4").is_empty())
+	menu.free()
+	Covers.clear()
+	Covers.seed([{ "uri": second, "kind": "video" }, { "uri": first, "kind": "video" }])
+	assert(Covers._records["cloud://account-a/Folder A"] == second, "Upgrade seeding chooses the newest video")
+	var recent := Recent.new(scratch.path_join("recents"))
+	assert(recent.opened(first, "first", true))
+	assert(recent.opened(second, "second", true))
+	assert(recent.forget(second))
+	assert(Covers._records["cloud://account-a/Folder A"] == first, "Forget falls back to remaining history")
+	recent.clear_all()
+	assert(Covers._records.is_empty(), "Clear history also clears folder cover references")
+	Thumbnails._textures.clear()
+	DirAccess.remove_absolute(Covers._path)
+	print("Folder cover tests passed")
+	quit(0)

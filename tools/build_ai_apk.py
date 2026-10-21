@@ -15,7 +15,8 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ["ai_streaming_subtitles", "ai_subtitle_bootstrap", "mpv_video_display",
-           "playback_coordinator", "xr_presentation_coordinator", "player_menu"]
+           "playback_coordinator", "xr_presentation_coordinator", "player_menu",
+           "folder_cover_cache", "recent_files", "library_menu"]
 BASE_SHA256 = "b08471877ffe6307ffdf4d8954d4875db1bd1451fddeadccbdc0b4fab1af9b04"
 
 
@@ -100,7 +101,7 @@ def main():
                       r'\g<1>Immivio AI\g<2>', strings.read_text())
         strings.write_text(text)
     yaml = unpacked / "apktool.yml"
-    yaml.write_text(yaml.read_text().replace("versionName: 0.9.3", "versionName: 0.9.3-ai.1"))
+    yaml.write_text(yaml.read_text().replace("versionName: 0.9.3", "versionName: 0.9.3-ai.2"))
     unsigned, aligned = work / "unsigned.apk", work / "aligned.apk"
     run([java, "-jar", args.apktool, "b", unpacked, "-o", unsigned])
     run([args.build_tools / "zipalign", "-f", "-P", "16", "4", unsigned, aligned])

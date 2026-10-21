@@ -126,6 +126,7 @@ const GRID_PITCH := Vector2(0.33, 0.29)
 const GRID_TOP := 0.375
 const SELECTED := Color(0.16, 0.31, 0.27)
 const Thumbnails := preload("res://scripts/thumbnail_cache.gd")
+const FolderCovers := preload("res://scripts/folder_cover_cache.gd")
 const COVER_BYTES := 2 * 1024 * 1024
 const FOLDER := Color(0.98, 0.78, 0.36)
 const ROW_BASE := 100
@@ -977,6 +978,9 @@ func _entry_row(entry: Dictionary) -> Dictionary:
 		for field in ["size", "modified"]:
 			if entry.has(field):
 				folder_row[field] = entry[field]
+		folder_row["folder_cover_uri"] = FolderCovers.from_entry(
+			entry, "cloud" if section == Section.CLOUD else ("smb" if section == Section.SMB else "local"), _smb_server
+		)
 		return folder_row
 	var photo: bool = (
 		entry.get("kind", "") == "image"
@@ -1303,6 +1307,7 @@ func _choose(row: Dictionary) -> void:
 			return
 		_confirm = ""
 		_cancel_covers()
+		FolderCovers.clear()
 		Thumbnails.clear()
 		preload("res://scripts/photo_preview_cache.gd").clear_disk()
 		if PlatformMethods.supports(platform, "clear_photo_cache"):
@@ -1951,7 +1956,8 @@ func _tile(target: int, row: Dictionary, centre: Vector2) -> void:
 	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	name.position = Vector3(0, -0.06, 0.004)
-	var picture := icon in ["video", "image"]
+	var folder_picture: Texture2D = _picture(row) if row.get("folder", false) else null
+	var picture := icon in ["video", "image"] or folder_picture != null
 	var area := _quad(
 		Vector2(TILE_SIZE.x - 0.02, 0.165),
 		Vector3(0, 0.04, 0.003),
@@ -1959,7 +1965,7 @@ func _tile(target: int, row: Dictionary, centre: Vector2) -> void:
 		12
 	)
 	node.add_child(area)
-	var shown: Texture2D = _picture(row) if picture else null
+	var shown: Texture2D = folder_picture if folder_picture else (_picture(row) if picture else null)
 	if shown:
 		var frame := _material(Color.WHITE, 12)
 		frame.albedo_texture = shown
@@ -2002,6 +2008,8 @@ func _lit(selected: bool) -> void:
 ## A played video's frame, or the cover a DLNA server offers (fetched once, then cached).
 ## Never reads a video to make one.
 func _picture(row: Dictionary) -> Texture2D:
+	if row.get("folder", false):
+		return FolderCovers.texture(str(row.get("folder_cover_uri", "")))
 	if row.has("scene"):
 		var server_picture: Texture2D = server_browser.cover(row)
 		return server_picture if server_picture else Thumbnails.texture(str(row.get("uri", "")))

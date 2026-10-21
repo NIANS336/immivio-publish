@@ -3,6 +3,19 @@ extends "res://scripts/file_mode_memory.gd"
 # Private recent-file catalog. Unlike per-file mode keys, reopening requires
 # retaining the original URI. Permissions are checked again before each open.
 const RECENT_LIMIT := 32
+const FolderCovers := preload("res://scripts/folder_cover_cache.gd")
+
+
+func load_saved() -> void:
+	super.load_saved()
+	FolderCovers.seed(list_recent())
+
+
+func relocate(old_uri: String, new_uri: String, title: String = "") -> bool:
+	if not super.relocate(old_uri, new_uri, title):
+		return false
+	FolderCovers.relocate(old_uri, new_uri)
+	return true
 
 
 func _bank_path(bank: int) -> String:
@@ -126,6 +139,8 @@ func opened(uri: String, title: String, persisted: bool, kind: String = "video")
 	):
 		entries.erase(key_for(list_recent().back().uri))
 	dirty = true
+	if kind != "image":
+		FolderCovers.remember(uri)
 	return true
 
 
@@ -171,6 +186,7 @@ func progress(uri: String, position_ms: int, duration_ms: int, ended: bool = fal
 
 ## Every entry, and with them the resume positions.
 func clear_all() -> bool:
+	FolderCovers.clear()
 	if entries.is_empty():
 		return false
 	entries.clear()
@@ -181,6 +197,8 @@ func clear_all() -> bool:
 func forget(uri: String) -> bool:
 	if not entries.erase(key_for(uri)):
 		return false
+	FolderCovers.forget(uri)
+	FolderCovers.seed(list_recent())
 	dirty = true
 	return true
 
