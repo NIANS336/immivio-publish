@@ -11,5 +11,7 @@
   "ahead_ms": 12000,
   "segment_seconds": 3.0,
   "dialogue_filter": "dynaudnorm=f=200:g=15",
-  "vad_threshold": 0.3
+  "vad_threshold": 0.3,
+  "system_prompt": "",
+  "translation_temperature": 0.7
 }

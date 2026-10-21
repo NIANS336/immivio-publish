@@ -43,6 +43,12 @@ class Config:
     # the local average and lower the speech threshold of this connection only.
     dialogue_filter: str = "dynaudnorm=f=200:g=15"
     vad_threshold: float = 0.3
+    # llama.cpp has no server-side system prompt, so the translator persona is set
+    # per request here. Empty means the built-in AV subtitle persona.
+    system_prompt: str = ""
+    # Sent on every request, so it overrides the llama.cpp server's --temp default.
+    # 0.7 measured least stiff for this persona; drop towards 0.1 for literal output.
+    translation_temperature: float = 0.7
 
     @classmethod
     def load(cls, path):
@@ -58,6 +64,10 @@ class Config:
             raise ValueError("invalid vad_threshold")
         if any(c in config.dialogue_filter for c in ('"', "'", "`", "$", ";", "\n", "\r")):
             raise ValueError("invalid dialogue_filter")
+        if len(config.system_prompt) > 2000:
+            raise ValueError("system_prompt is too long for the translation context")
+        if not 0 <= config.translation_temperature <= 1.5:
+            raise ValueError("invalid translation_temperature")
         return config
 
     def media_url(self, path):

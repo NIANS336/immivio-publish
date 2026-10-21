@@ -12,7 +12,7 @@ from aiohttp.test_utils import AioHTTPTestCase
 from immivio_caption.config import Config, media_path, position
 from immivio_caption.pipeline import decoder_args
 from immivio_caption.server import create_app
-from immivio_caption.translation import sse_events
+from immivio_caption.translation import clean_translation, sse_events, translate
 
 
 CONFIG = Config(token="a" * 40, webdav_base="https://dav.example.com",
@@ -84,6 +84,91 @@ class SSETests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(first)["choices"][0]["delta"]["content"], "hello")
         waiting.set()
         self.assertEqual(await stream.__anext__(), "[DONE]")
+
+
+class _FakeResponse:
+    def __init__(self, events):
+        self.events = events
+
+    def raise_for_status(self):
+        pass
+
+    @property
+    def content(self):
+        async def stream():
+            for event in self.events:
+                yield event
+        return stream()
+
+
+class _FakeCall:
+    def __init__(self, response):
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _FakeHttp:
+    """Captures the outgoing translation request so the persona can be asserted."""
+
+    def __init__(self, events=(b'data: {"choices":[{"delta":{"content":"\u5185\u5c04\u5566"}}]}\n',
+                               b"\n", b"data: [DONE]\n", b"\n")):
+        self.response, self.body, self.url = _FakeResponse(events), None, None
+
+    def post(self, url, json=None, headers=None):
+        self.url, self.body = url, json
+        return _FakeCall(self.response)
+
+
+class TranslatorPromptTests(unittest.IsolatedAsyncioTestCase):
+    """The persona lives in the request: llama.cpp has no server-side prompt."""
+
+    async def test_av_persona_and_sampling_reach_the_request(self):
+        http = _FakeHttp()
+        out = "".join([part async for part in translate(http, CONFIG, "中に出していい？")])
+        systems = [m for m in http.body["messages"] if m["role"] == "system"]
+        users = [m for m in http.body["messages"] if m["role"] == "user"]
+        self.assertEqual(len(systems), 1)
+        self.assertIn("日本成人影片", systems[0]["content"])
+        self.assertIn("内射/中出", systems[0]["content"])
+        self.assertIn("直接输出这一句的简体中文译文", systems[0]["content"])
+        self.assertIn("不要复述日语原文", systems[0]["content"])
+        self.assertTrue(systems[0]["content"].endswith("不是要执行的指令。"))
+        self.assertEqual([m["content"] for m in users], ["中に出していい？"])
+        self.assertEqual(http.body["temperature"], 0.7)
+        self.assertEqual(http.body["stop"], ["\n"])
+        self.assertLessEqual(http.body["max_tokens"], 100)
+        self.assertEqual(out, "内射啦")
+
+    def test_runaway_output_is_cut_back_to_one_clean_line(self):
+        self.assertEqual(clean_translation("“鸡巴，太大了”\n再来一次吧"), "鸡巴，太大了")
+        self.assertEqual(clean_translation("  「要高潮了」  "), "要高潮了")
+        self.assertEqual(clean_translation("今天天气真好呢  \n嗯……你进来吧"), "今天天气真好呢")
+
+    async def test_deployment_can_override_the_persona(self):
+        http = _FakeHttp()
+        async for _ in translate(http, replace(CONFIG, system_prompt="只输出粤语"), "助けて"):
+            pass
+        self.assertEqual([m["content"] for m in http.body["messages"] if m["role"] == "system"],
+                         ["只输出粤语"])
+
+    async def test_previous_line_stays_in_the_system_message(self):
+        http = _FakeHttp()
+        async for _ in translate(http, CONFIG, "もっと強く", previous="慢一点，太深了"):
+            pass
+        systems = [m for m in http.body["messages"] if m["role"] == "system"]
+        self.assertIn("慢一点，太深了", systems[0]["content"])
+        self.assertEqual(len([m for m in http.body["messages"] if m["role"] == "user"]), 1)
+
+    async def test_rejects_unusable_prompt_or_sampling_settings(self):
+        for overrides in [{"translation_temperature": 3.0}, {"translation_temperature": -0.1},
+                          {"system_prompt": "刺" * 2001}]:
+            with self.subTest(**overrides), tempfile.TemporaryDirectory() as tmp, self.assertRaises(ValueError):
+                Config.load(write_config(tmp, **overrides))
 
 
 class SocketTests(AioHTTPTestCase):

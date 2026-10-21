@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 import aiohttp
 
-from .translation import translate
+from .translation import clean_translation, translate
 
 
 def decoder_args(config, url, audio_index, start_ms):
@@ -148,6 +148,7 @@ class Pipeline:
                 if first_ms is None:
                     first_ms = round((time.monotonic() - began) * 1000)
                 await self.emit(cue)
+            cue["text"] = clean_translation(cue["text"])
             cue.update(final=True, first_token_ms=first_ms,
                        translation_ms=round((time.monotonic() - began) * 1000),
                        asr_ms=item.get("asr_ms"))
