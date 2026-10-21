@@ -28,6 +28,16 @@ async def health(request):
                               "translation": "SSE_incremental"})
 
 
+async def status(request):
+    if not hmac.compare_digest(request.headers.get("Authorization", ""),
+                               "Bearer " + request.app["config"].token):
+        raise web.HTTPUnauthorized()
+    return web.json_response({"pipelines": [
+        {**p.stats, "epoch": p.epoch, "position_ms": p.position_ms,
+         "decoded_ms": p.decoded_ms, "start_ms": p.start_ms}
+        for p in request.app["pipelines"].values()]})
+
+
 async def relay(request):
     if not ipaddress.ip_address(request.remote).is_loopback:
         raise web.HTTPForbidden()
@@ -70,6 +80,7 @@ async def subtitles(request):
     supplied = request.headers.get("Authorization", "")
     if not hmac.compare_digest(supplied, "Bearer " + config.token):
         raise web.HTTPUnauthorized()
+    request.app["sockets"].difference_update(s for s in list(request.app["sockets"]) if s.closed)
     if len(request.app["sockets"]) >= 2:
         raise web.HTTPServiceUnavailable()
     socket = web.WebSocketResponse(heartbeat=20, max_msg_size=16384)
@@ -107,6 +118,7 @@ async def subtitles(request):
                     await cancel(task)
                     pipeline = Pipeline(request.app["http"], config, send, request.app["nonce"],
                                         epoch, path, start, audio)
+                    request.app["pipelines"][socket] = pipeline
                     task = asyncio.create_task(pipeline.run())
                 elif kind == "clock" and pipeline and item.get("epoch") == current_epoch:
                     pipeline.position_ms = position(item.get("position_ms"))
@@ -114,22 +126,26 @@ async def subtitles(request):
                     current_epoch += 1
                     await cancel(task)
                     pipeline, task = None, None
+                    request.app["pipelines"].pop(socket, None)
                 else:
                     raise ValueError()
             except (ValueError, TypeError, KeyError):
                 await socket.send_json({"type": "error", "epoch": current_epoch,
                                         "message": "无效的字幕请求"})
     finally:
-        await cancel(task)
         request.app["sockets"].discard(socket)
+        request.app["pipelines"].pop(socket, None)
+        await cancel(task)
     return socket
 
 
 def create_app(config):
     app = web.Application(client_max_size=16384)
     app["config"], app["nonce"], app["sockets"] = config, secrets.token_urlsafe(32), set()
+    app["pipelines"] = {}
     app.cleanup_ctx.append(lifespan)
     app.router.add_get("/health", health)
+    app.router.add_get("/status", status)
     app.router.add_get("/subtitles", subtitles)
     app.router.add_get("/media/{nonce}/{path:.*}", relay)
     return app

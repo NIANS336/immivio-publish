@@ -55,6 +55,8 @@ class SocketTests(AioHTTPTestCase):
     async def test_requires_auth_and_media_proxy_is_not_bearer_auth(self):
         response = await self.client.get("/subtitles")
         self.assertEqual(response.status, 401)
+        response = await self.client.get("/status")
+        self.assertEqual(response.status, 401)
         response = await self.client.get("/media/wrong/film.mp4")
         self.assertEqual(response.status, 403)
 
@@ -89,3 +91,31 @@ class SocketTests(AioHTTPTestCase):
                 await ws.send_json({"type": "start", "epoch": 1, "path": "/a.mp4", "position_ms": -10})
                 self.assertEqual((await ws.receive_json())["type"], "error")
                 run.assert_not_called()
+
+    async def test_reconnect_releases_slot_before_slow_cleanup_finishes(self):
+        cleanup = asyncio.Event()
+        started = asyncio.Event()
+
+        async def run(pipeline):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                await cleanup.wait()
+
+        headers = {"Authorization": "Bearer " + CONFIG.token}
+        with patch("immivio_caption.server.Pipeline.run", run):
+            try:
+                for _ in range(4):
+                    ws = await self.client.ws_connect("/subtitles", headers=headers)
+                    await ws.receive_json()
+                    started.clear()
+                    await ws.send_json({"type": "start", "epoch": 1, "path": "/a.mp4", "position_ms": 0})
+                    await asyncio.wait_for(started.wait(), 1)
+                    await ws.close()
+                    await asyncio.sleep(.02)
+                result = await self.client.get("/health")
+                self.assertEqual((await result.json())["clients"], 0)
+            finally:
+                cleanup.set()
+                await asyncio.sleep(.02)

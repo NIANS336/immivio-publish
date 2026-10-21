@@ -24,12 +24,15 @@ class Pipeline:
         self.process = None
         self.decoded_ms = self.start_ms
         self.previous = ""
+        self.stats = {"phase": "starting", "recognized": 0, "translated": 0,
+                      "partial_updates": 0, "last_start_ms": 0, "last_end_ms": 0}
 
     async def emit(self, message):
         await self.send({**message, "epoch": self.epoch})
 
     async def run(self):
         try:
+            self.stats["phase"] = "reading_audio"
             await self.emit({"type": "status", "message": "正在读取音轨"})
             async with self.http.ws_connect(self.config.asr_url, heartbeat=20,
                                             max_msg_size=65536) as asr:
@@ -46,13 +49,21 @@ class Pipeline:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            self.stats["phase"] = "error"
             logging.warning("Subtitle pipeline stopped (%s)", type(exc).__name__)
             # Do not log upstream URLs, credentials, signed links, or dialogue.
             await self.emit({"type": "error", "message": "AI 字幕连接中断，请关闭后重开 AI 字幕"})
         finally:
-            if self.process and self.process.returncode is None:
-                self.process.kill()
-                await self.process.wait()
+            await self.close_process()
+
+    async def close_process(self):
+        if self.process:
+            if self.process.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    self.process.kill()
+            # wait() can deadlock with a full stdout pipe, even after kill().
+            # communicate() drains the pipe so cancellation can release the slot.
+            await asyncio.wait_for(self.process.communicate(), timeout=5)
 
     async def feed(self, asr):
         url = f"http://127.0.0.1:{self.config.port}/media/{self.nonce}" + quote(self.path, safe="/")
@@ -74,6 +85,7 @@ class Pipeline:
             await asr.send_bytes(data)
             sent += len(data)
             self.decoded_ms = self.start_ms + sent // 32
+            self.stats["phase"] = "streaming"
             # At most 4x real time; prevents overrunning the ASR's four-segment queue.
             await asyncio.sleep(len(data) / 32000 / 4)
         code = await self.process.wait()
@@ -88,6 +100,7 @@ class Pipeline:
             item = message.json()
             kind = item.get("type")
             if kind == "transcript" and item.get("text", "").strip():
+                self.stats["recognized"] += 1
                 await self.queue.put(item)
             elif kind == "error":
                 raise RuntimeError("ASR returned an error")
@@ -112,6 +125,7 @@ class Pipeline:
             began = time.monotonic()
             first_ms = None
             async for token in translate(self.http, self.config, cue["source"], self.previous):
+                self.stats["partial_updates"] += 1
                 cue["text"] += token
                 if first_ms is None:
                     first_ms = round((time.monotonic() - began) * 1000)
@@ -120,6 +134,9 @@ class Pipeline:
                        translation_ms=round((time.monotonic() - began) * 1000),
                        asr_ms=item.get("asr_ms"))
             await self.emit(cue)
+            self.stats.update(translated=self.stats["translated"] + 1,
+                              last_start_ms=start, last_end_ms=cue["end_ms"],
+                              translated_chars=len(cue["text"]), first_token_ms=first_ms)
             self.previous = cue["source"]
 
 
