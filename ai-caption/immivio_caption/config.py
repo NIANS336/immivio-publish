@@ -44,7 +44,9 @@ class Config:
     dialogue_filter: str = "dynaudnorm=f=200:g=15"
     vad_threshold: float = 0.3
     # llama.cpp has no server-side system prompt, so the translator persona is set
-    # per request here. Empty means the built-in AV subtitle persona.
+    # per request here. Named preset: "generic" (neutral dialogue) or "mature"
+    # (adult-video style). A non-empty system_prompt overrides the preset.
+    persona: str = "generic"
     system_prompt: str = ""
     # Sent on every request, so it overrides the llama.cpp server's --temp default.
     # 0.7 measured least stiff for this persona; drop towards 0.1 for literal output.
@@ -64,6 +66,8 @@ class Config:
             raise ValueError("invalid vad_threshold")
         if any(c in config.dialogue_filter for c in ('"', "'", "`", "$", ";", "\n", "\r")):
             raise ValueError("invalid dialogue_filter")
+        if config.persona not in ("generic", "mature"):
+            raise ValueError("persona must be generic or mature")
         if len(config.system_prompt) > 2000:
             raise ValueError("system_prompt is too long for the translation context")
         if not 0 <= config.translation_temperature <= 1.5:

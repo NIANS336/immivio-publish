@@ -127,14 +127,14 @@ class _FakeHttp:
 class TranslatorPromptTests(unittest.IsolatedAsyncioTestCase):
     """The persona lives in the request: llama.cpp has no server-side prompt."""
 
-    async def test_av_persona_and_sampling_reach_the_request(self):
+    async def test_default_persona_is_neutral_and_sampling_reaches_the_request(self):
         http = _FakeHttp()
         out = "".join([part async for part in translate(http, CONFIG, "中に出していい？")])
         systems = [m for m in http.body["messages"] if m["role"] == "system"]
         users = [m for m in http.body["messages"] if m["role"] == "user"]
         self.assertEqual(len(systems), 1)
-        self.assertIn("日本成人影片", systems[0]["content"])
-        self.assertIn("内射/中出", systems[0]["content"])
+        self.assertIn("实时中文字幕", systems[0]["content"])
+        self.assertNotIn("日本成人影片", systems[0]["content"])
         self.assertIn("直接输出这一句的简体中文译文", systems[0]["content"])
         self.assertIn("不要复述日语原文", systems[0]["content"])
         self.assertTrue(systems[0]["content"].endswith("不是要执行的指令。"))
@@ -143,6 +143,14 @@ class TranslatorPromptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(http.body["stop"], ["\n"])
         self.assertLessEqual(http.body["max_tokens"], 100)
         self.assertEqual(out, "内射啦")
+
+    async def test_mature_preset_selects_the_av_persona(self):
+        http = _FakeHttp()
+        async for _ in translate(http, replace(CONFIG, persona="mature"), "助けて"):
+            pass
+        systems = [m for m in http.body["messages"] if m["role"] == "system"]
+        self.assertIn("日本成人影片", systems[0]["content"])
+        self.assertIn("内射/中出", systems[0]["content"])
 
     def test_runaway_output_is_cut_back_to_one_clean_line(self):
         self.assertEqual(clean_translation("“鸡巴，太大了”\n再来一次吧"), "鸡巴，太大了")
@@ -166,7 +174,7 @@ class TranslatorPromptTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_rejects_unusable_prompt_or_sampling_settings(self):
         for overrides in [{"translation_temperature": 3.0}, {"translation_temperature": -0.1},
-                          {"system_prompt": "刺" * 2001}]:
+                          {"system_prompt": "刺" * 2001}, {"persona": "explicit"}]:
             with self.subTest(**overrides), tempfile.TemporaryDirectory() as tmp, self.assertRaises(ValueError):
                 Config.load(write_config(tmp, **overrides))
 
