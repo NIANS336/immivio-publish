@@ -233,6 +233,10 @@ func _on_playback_adjustment(key: String, value: Variant) -> void:
 		return
 	elif key == "subtitle_palette":
 		host.video.subtitle_palette = host.video.CaptionPalette.index(value)
+	elif key in ["subtitle_eye_horizontal", "subtitle_eye_vertical"]:
+		host.video.SubtitleStereo.apply(host.video, key, float(value))
+	elif key == "subtitle_stereo_reset":
+		host.video.SubtitleStereo.reset(host.video)
 	elif key == "subtitle_size":
 		if not is_finite(float(value)):
 			return
@@ -271,5 +275,6 @@ func _save_playback_adjustments() -> void:
 	host.settings.set_value("subtitles", "distance", host.video.subtitle_distance)
 	host.settings.set_value("subtitles", "elevation_degrees", host.video.subtitle_position)
 	host.settings.set_value("subtitles", "direction", host.video.subtitle_direction)
+	host.video.SubtitleStereo.save(host.video, host.settings)
 	host.settings.set_value("video", "color_grade", host.video.color_grade.snapshot())
 	host.settings.save(host.settings_path)

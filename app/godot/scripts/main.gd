@@ -276,6 +276,7 @@ func _ready() -> void:
 	video.auto_depth = false
 	video.load_mode_lock(settings.get_value("video", "mode_lock", {}))
 	video.subtitle_distance = float(settings.get_value("subtitles", "distance", 5.0))
+	video.SubtitleStereo.restore(video, settings)
 	video.subtitle_position = video.SubtitleDepth.restore_position(settings)
 	video.subtitle_size = clampf(float(settings.get_value("subtitles", "size", 1.0)), 0.5, 2.0)
 	video.subtitle_flat_position = clampf(

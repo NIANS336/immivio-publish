@@ -75,6 +75,13 @@ func _button(
 
 func draw(key: String) -> void:
 	match key:
+		"subtitle_alignment":
+			var y := _panel("字幕双眼校准", 0.53)
+			_slider("字幕水平合像", "subtitle_eye_horizontal", Vector3(-10, 10, 0.05), 0, "°", y, 2, true)
+			_slider("字幕垂直合像", "subtitle_eye_vertical", Vector3(-10, 10, 0.05), 0, "°", y - 0.10, 2, true)
+			menu._label("调整到两眼字幕重合；仅影响字幕", Vector3(0, y - 0.19, 0.004), 14).modulate = menu.MUTED
+			_button(menu.SUBTITLE_STEREO_RESET, "重置字幕校准", Vector2(-0.26, 0.335), 0.49)
+			_button(110, "返回字幕", Vector2(0.26, 0.335), 0.49)
 		"speed":
 			var y := _panel("Playback speed", 0.33)
 			_slider("Playback speed", "playback_speed", Vector3(0.25, 3, 0.05), 1, "×", y, 2)
@@ -317,6 +324,9 @@ func action(target: int) -> bool:
 	if key == "speed" and target == menu.SPEED_RESET:
 		adjustment = "playback_speed"
 		value = 1.0
+	elif key == "subtitle_alignment" and target == menu.SUBTITLE_STEREO_RESET:
+		adjustment = "subtitle_stereo_reset"
+		value = true
 	elif key == "sync" and target in [menu.SUBTITLE_DELAY_RESET, menu.AUDIO_DELAY_RESET]:
 		adjustment = (
 			"subtitle_delay_ms" if target == menu.SUBTITLE_DELAY_RESET else "audio_delay_ms"

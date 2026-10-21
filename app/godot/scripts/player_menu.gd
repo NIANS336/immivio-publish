@@ -56,6 +56,8 @@ const SUBTITLE_LOAD := 492
 const SUBTITLE_FORGET := 493
 const SUBTITLE_DELAY_RESET := 494
 const AUDIO_DELAY_RESET := 495
+const SUBTITLE_ALIGNMENT := 496
+const SUBTITLE_STEREO_RESET := 497
 const QueueMenu := preload("res://scripts/playback_queue_menu.gd")
 var queue_menu := QueueMenu.new(self)
 const PlaybackPopups := preload("res://scripts/playback_popups.gd")
@@ -74,6 +76,7 @@ const POPUP_TARGETS := {
 	QUICK_COLOR: "color",
 	IPD_SETTINGS: "ipd",
 	SYNC_SETTINGS: "sync",
+	SUBTITLE_ALIGNMENT: "subtitle_alignment",
 	QUEUE_SETTINGS: "queue",
 	12: "info",
 	MODE: "mode",
@@ -801,8 +804,10 @@ func _draw_subtitles() -> void:
 	_subtitle_offset = clampi(_subtitle_offset, 0, maxi(0, tracks.size() - SUBTITLE_ROWS))
 	var rows := _subtitle_controls()
 	var scrolling := tracks.size() > SUBTITLE_ROWS
+	var alignment := _immersive_subtitles()
 	var height := (
 		0.26
+		+ (0.09 if alignment else 0.0)
 		+ (1 + mini(tracks.size(), SUBTITLE_ROWS)) * 0.075
 		+ rows.size() * 0.10
 		+ (0.06 if scrolling else 0.0)
@@ -844,11 +849,13 @@ func _draw_subtitles() -> void:
 	_button(
 		SUBTITLE_LOAD,
 		I18n.t("Load subtitle file"),
-		Vector2(-0.25, 0.365),
+		Vector2(-0.25, 0.455 if alignment else 0.365),
 		Vector2(0.47, 0.065),
 		not _state.get("subtitle_loading", false)
 	)
-	_button(SYNC_SETTINGS, I18n.t("Synchronization"), Vector2(0.25, 0.365), Vector2(0.47, 0.065))
+	_button(SYNC_SETTINGS, I18n.t("Synchronization"), Vector2(0.25, 0.455 if alignment else 0.365), Vector2(0.47, 0.065))
+	if alignment:
+		_button(SUBTITLE_ALIGNMENT, "字幕双眼校准", Vector2(0, 0.365), Vector2(0.96, 0.065))
 	var hint := _label(
 		I18n.t("External subtitles must match the video filename."), Vector3(0, 0.31, 0.004), 13
 	)
@@ -1139,6 +1146,8 @@ func _bar_key() -> String:
 			_state.get("audio_options", []),
 			_state.get("audio_track_id", -1),
 			_state.get("subtitle_distance", SubtitleDepth.DEFAULT),
+			_state.get("subtitle_eye_horizontal", 0.0),
+			_state.get("subtitle_eye_vertical", 0.0),
 			_state.get("subtitle_position", SubtitleDepth.DEFAULT_POSITION),
 			_state.get("subtitle_direction", 0),
 			_state.get("subtitle_size", 100),
@@ -1352,6 +1361,8 @@ func _on_choice_changed(key: String, value: Variant) -> void:
 				"audio_delay_ms",
 				"stereo_horizontal",
 				"stereo_vertical",
+				"subtitle_eye_horizontal",
+				"subtitle_eye_vertical",
 				"grade_preset"
 			]
 		)

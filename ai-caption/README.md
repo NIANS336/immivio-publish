@@ -51,7 +51,7 @@ python -m unittest discover -s tests -v
 
 新增代码只有 GDScript 和独立 Windows 服务，原生播放器未改。`tools/build_ai_apk.py` 使用匹配的 Godot 4.7.2 编译修改过的字幕和媒体库脚本，以 v0.9.3 Quest APK 为原生基底，更新 sparse PCK 索引，使用 apktool 2.12.1 重新打包并以私有密钥签名。脚本逐项验证原 APK 的所有 DEX 和 ELF 内容未变；无需重新构建 OpenList、FFmpeg 或 libmpv。
 
-参数：`--base-apk --godot --apktool --java-home --build-tools --keystore --out --work-dir`。这些参数都是本机路径，签名密码由环境变量 `IMMIVIO_KEYSTORE_PASSWORD` 提供。APK 名称为 Immivio AI，版本为 0.9.3-ai.2，保留应用 ID `com.wapok.thru3d`，启用调试仅用于 ADB 私有配置。保留签名密钥才能以后覆盖更新。不同发行方签名不能互相覆盖。
+参数：`--base-apk --godot --apktool --java-home --build-tools --keystore --out --work-dir`。这些参数都是本机路径，签名密码由环境变量 `IMMIVIO_KEYSTORE_PASSWORD` 提供。APK 名称为 Immivio AI，版本为 0.9.3-ai.3，保留应用 ID `com.wapok.thru3d`，启用调试仅用于 ADB 私有配置。保留签名密钥才能以后覆盖更新。不同发行方签名不能互相覆盖。构建同时更新字幕 shader include 及其 sparse PCK 索引，确保新的双眼偏移进入 APK。
 
 所有 Android 语言资源中的应用名均为 Immivio AI（包括 zh-CN）。侧载应用从 Quest 应用库的“未知来源”打开。SMB 播放沿用原播放器的账户库；当前头显已添加 Windows 共享入口，具体共享目录在该入口下选择。AI 音轨读取目前针对所配置的 WebDAV，SMB 的 AI 音轨读取尚未接入。
 

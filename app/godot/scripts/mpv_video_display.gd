@@ -97,6 +97,9 @@ var caption: Label3D
 const ColorGrade := preload("res://scripts/color_grade.gd")
 var color_grade := ColorGrade.new()
 const SubtitleDepth := preload("res://scripts/subtitle_depth.gd")
+const SubtitleStereo := preload("res://scripts/subtitle_stereo_alignment.gd")
+var subtitle_eye_horizontal := 0.0
+var subtitle_eye_vertical := 0.0
 var subtitle_distance := 5.0:
 	set(value):
 		subtitle_distance = SubtitleDepth.distance(value)
@@ -1397,6 +1400,7 @@ func _place_caption() -> void:
 	# Anchor in the video's coordinates, like burned-in captions. Head pose never changes it.
 	# Direction/recenter/zoom move captions with the video; roll is excluded by the independent surface.
 	var anchor_basis := SubtitleDepth.anchor(subtitle_position, subtitle_direction == 1)
+	material.set_shader_parameter("subtitle_eye_offset", SubtitleStereo.radians(subtitle_eye_horizontal, subtitle_eye_vertical))
 	caption.layers = 0  # The live text patch is drawn only by the video's shader.
 	projected_subtitles.update_patch(
 		caption,
@@ -2117,6 +2121,7 @@ func _sync_subtitle_surface() -> void:
 		"subtitle_enabled",
 		"subtitle_anchor_inverse",
 		"subtitle_parallax",
+		"subtitle_eye_offset",
 		"subtitle_patch_half_extent"
 	]:
 		_subtitle_material.set_shader_parameter(key, material.get_shader_parameter(key))

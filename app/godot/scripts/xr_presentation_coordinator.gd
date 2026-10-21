@@ -666,6 +666,8 @@ func _menu_state() -> Dictionary:
 		"subtitle_size": host.video.subtitle_size * 100,
 		"subtitle_flat_position": host.video.subtitle_flat_position * 100,
 		"subtitle_distance": host.video.subtitle_distance,
+		"subtitle_eye_horizontal": host.video.subtitle_eye_horizontal,
+		"subtitle_eye_vertical": host.video.subtitle_eye_vertical,
 		"color_grade": host.video.color_grade.snapshot(),
 		"subtitle_position": host.video.subtitle_position,
 		"subtitle_direction": host.video.subtitle_direction,
